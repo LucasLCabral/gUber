@@ -15,7 +15,6 @@ func handleTripPreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Read the body once and keep it for forwarding
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "failed to read request body", http.StatusBadRequest)
@@ -23,7 +22,6 @@ func handleTripPreview(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	// Validate the request body
 	var reqBody previewTripRequest
 	if err := json.Unmarshal(bodyBytes, &reqBody); err != nil {
 		http.Error(w, "failed to parse JSON data", http.StatusBadRequest)
@@ -35,7 +33,6 @@ func handleTripPreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Forward the request to trip-service with the original body
 	resp, err := http.Post("http://trip-service:8083/preview", "application/json", bytes.NewReader(bodyBytes))
 	if err != nil {
 		log.Printf("Error calling trip-service: %v", err)
