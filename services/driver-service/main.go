@@ -2,9 +2,6 @@ package main
 
 import (
 	"context"
-	"guber/services/trip-service/internal/infrastructure/grpc"
-	"guber/services/trip-service/internal/infrastructure/repository"
-	"guber/services/trip-service/internal/service"
 	"log"
 	"net"
 	"os"
@@ -14,14 +11,10 @@ import (
 	grpcserver "google.golang.org/grpc"
 )
 
-var gRPCAddr = ":9093"
+var gRPCAddr = ":9092"
 
 func main() {
-	log.Println("🚀 Starting Trip Service!")
-
-	inMemRepo := repository.NewInMemRepository()
-	svc := service.NewService(inMemRepo)
-
+	log.Println("🚀 Starting Driver Service!")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -37,11 +30,13 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
+	service := NewServive()
+
 	// Starting the gRPC server
 	gRPCServer := grpcserver.NewServer()
-	grpc.NewGRPCHandler(gRPCServer, svc)
+	NewGRPCHandler(gRPCServer, service)
 
-	log.Printf("Starting gRPC server Trip service on port %s", lis.Addr().String())
+	log.Printf("Starting gRPC server Driver service on port %s", lis.Addr().String())
 	go func() {
 		if err := gRPCServer.Serve(lis); err != nil {
 			log.Printf("Failed to serve: %v", err)

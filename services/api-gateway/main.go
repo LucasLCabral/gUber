@@ -21,7 +21,11 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("POST /trip/preview", handleTripPreview)
+	mux.HandleFunc("/trip/preview", enableCORS(handleTripPreview))
+	mux.HandleFunc("/trip/start", enableCORS(handleTripStart))
+	mux.HandleFunc("/ws/drivers", enableCORS(handleDriversWebSocket))
+	mux.HandleFunc("/ws/riders", enableCORS(handleRidersWebSocket))
+
 
 	server := &http.Server{
 		Addr:    httpAddr,
@@ -56,4 +60,5 @@ func main() {
 			log.Println("Server stopped")
 		}
 	}
+	
 }

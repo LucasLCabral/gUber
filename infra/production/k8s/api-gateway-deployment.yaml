@@ -23,6 +23,8 @@ spec:
                 configMapKeyRef:
                   key: GATEWAY_HTTP_ADDR
                   name: app-config
+            - name: TRIP_SERVICE_URL
+              value: "trip-service:9093"
           resources:
             requests:
               memory: "128Mi"

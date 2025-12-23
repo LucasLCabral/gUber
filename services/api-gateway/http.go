@@ -1,59 +1,75 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
+	"guber/services/api-gateway/grpc_clients"
 	"guber/shared/contracts"
-	"io"
 	"log"
 	"net/http"
 )
 
 func handleTripPreview(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "failed to read request body", http.StatusBadRequest)
-		return
-	}
-	defer r.Body.Close()
-
 	var reqBody previewTripRequest
-	if err := json.Unmarshal(bodyBytes, &reqBody); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 		http.Error(w, "failed to parse JSON data", http.StatusBadRequest)
 		return
 	}
 
+	defer r.Body.Close()
+
+	// validation
 	if reqBody.UserID == "" {
-		http.Error(w, "userid is required", http.StatusBadRequest)
+		http.Error(w, "user ID is required", http.StatusBadRequest)
 		return
 	}
 
-	resp, err := http.Post("http://trip-service:8083/preview", "application/json", bytes.NewReader(bodyBytes))
+	tripService, err := grpc_clients.NewTripServiceClient()
 	if err != nil {
-		log.Printf("Error calling trip-service: %v", err)
-		http.Error(w, "failed to connect to trip service", http.StatusBadGateway)
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		log.Printf("Trip service returned status code: %d", resp.StatusCode)
-		http.Error(w, "trip service error", resp.StatusCode)
-		return
+		log.Fatal(err)
 	}
 
-	var respBody any
-	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
-		log.Printf("Error decoding trip service response: %v", err)
-		http.Error(w, "failed to parse JSON data from trip service", http.StatusBadGateway)
+	// Don't forget to close the client to avoid resource leaks
+	defer tripService.Close()
+
+	tripPreview, err := tripService.Client.PreviewTrip(r.Context(), reqBody.toProto())
+	if err != nil {
+		log.Printf("Failed to preview a trip: %v", err)
+		http.Error(w, "Failed to preview trip", http.StatusInternalServerError)
 		return
 	}
 
-	response := contracts.APIResponse{Data: respBody}
-	writeJson(w, http.StatusOK, response)
+	response := contracts.APIResponse{Data: tripPreview}
+
+	writeJSON(w, http.StatusCreated, response)
+}
+
+func handleTripStart(w http.ResponseWriter, r *http.Request)  {
+	var reqBody startTripRequest
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		http.Error(w, "failed to parse JSON data", http.StatusBadRequest)
+		return
+	}
+
+	defer r.Body.Close()
+
+	// validation
+	if reqBody.UserID == "" {
+		http.Error(w, "user ID is required", http.StatusBadRequest)
+		return
+	}
+
+	tripService, err := grpc_clients.NewTripServiceClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer tripService.Close()
+
+	trip, err := tripService.Client.CreateTrip(r.Context(), reqBody.toProto())
+	if err != nil {
+		log.Printf("Failed to start a trip: %v", err)
+		http.Error(w, "Failed to start trip", http.StatusInternalServerError)
+		return
+	}
+	response := contracts.APIResponse{Data: trip}
+	writeJSON(w, http.StatusCreated, response)
 }
