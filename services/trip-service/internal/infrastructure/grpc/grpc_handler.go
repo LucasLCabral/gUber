@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"guber/services/trip-service/internal/domain"
+	"guber/services/trip-service/internal/infrastructure/events"
 	pb "guber/shared/proto/trip"
 	"guber/shared/types"
 	"log"
@@ -15,12 +16,14 @@ import (
 type gRPCHandler struct {
 	pb.UnimplementedTripServiceServer
 
-	service domain.TripService
+	service   domain.TripService
+	publisher *events.TripEventPublisher
 }
 
-func NewGRPCHandler(server *grpc.Server, service domain.TripService) *gRPCHandler {
+func NewGRPCHandler(server *grpc.Server, service domain.TripService, publisher *events.TripEventPublisher) *gRPCHandler {
 	handler := &gRPCHandler{
 		service: service,
+		publisher: publisher,
 	}
 	pb.RegisterTripServiceServer(server, handler)
 	return handler
@@ -71,7 +74,11 @@ func (h *gRPCHandler) CreateTrip(ctx context.Context, req *pb.CreateTripRequest)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to create the trip: %v", err)
 	}
-	
+
+	if err := h.publisher.PublishTripCreated(ctx); err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to publish the trip created event: %v", err)
+	}
+
 	// todo: implement event publish to async communication
 	return &pb.CreateTripResponse{
 		TripID: trip.ID.Hex(),

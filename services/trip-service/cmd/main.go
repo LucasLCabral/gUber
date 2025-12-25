@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"guber/services/trip-service/internal/infrastructure/events"
 	"guber/services/trip-service/internal/infrastructure/grpc"
 	"guber/services/trip-service/internal/infrastructure/repository"
 	"guber/services/trip-service/internal/service"
@@ -42,16 +43,17 @@ func main() {
 	}
 
 	// Connecting to RabbitMQ
-	conn, err := messaging.NewRabbitMQ(rabbitMqURI)
+	rabbitmq, err := messaging.NewRabbitMQ(rabbitMqURI)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer conn.Close()
+	defer rabbitmq.Close()
 	log.Println("Connected to RabbitMQ")
+	publisher := events.NewTripEventPublisher(rabbitmq)
 
 	// Starting the gRPC server
 	gRPCServer := grpcserver.NewServer()
-	grpc.NewGRPCHandler(gRPCServer, svc)
+	grpc.NewGRPCHandler(gRPCServer, svc, publisher)
 
 	log.Printf("Starting gRPC server Trip service on port %s", lis.Addr().String())
 	go func() {
