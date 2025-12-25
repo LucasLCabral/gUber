@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"guber/shared/env"
+	"guber/shared/messaging"
 	"log"
 	"net"
 	"os"
@@ -15,6 +17,7 @@ var gRPCAddr = ":9092"
 
 func main() {
 	log.Println("🚀 Starting Driver Service!")
+	rabbitMqURI := env.GetString("RABBITMQ_URI", "amqp://guest:guest@localhost:5672/")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -31,6 +34,14 @@ func main() {
 	}
 
 	service := NewServive()
+
+	// Connecting to RabbitMQ
+	conn, err := messaging.NewRabbitMQ(rabbitMqURI)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+	log.Println("Connected to RabbitMQ")
 
 	// Starting the gRPC server
 	gRPCServer := grpcserver.NewServer()
